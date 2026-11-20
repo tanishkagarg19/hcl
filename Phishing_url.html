@@ -87,5 +87,130 @@
             <ul class="findings" id="findingsList"></ul>
         </div>
     </div>
+        <script>
+        var brands = ["paypal", "google", "amazon", "microsoft", "apple",
+                      "netflix", "facebook", "bank", "sbi", "hdfc", "icici"];
+
+        var suspiciousWords = ["login", "verify", "update", "secure",
+                               "account", "banking", "password"];
+
+        function getDomain(link) {
+            if (!link.startsWith("http://") && !link.startsWith("https://")) {
+                link = "http://" + link;
+            }
+            try {
+                var u = new URL(link);
+                return u.hostname.toLowerCase();
+            } catch (e) {
+                return ""; 
+            }
+        }
+
+        function checkUrl(url) {
+            var lower = url.toLowerCase();
+            var domain = getDomain(url);
+            var probs = [];
+
+            if (!lower.startsWith("https://")) {
+                probs.push("Missing HTTPS: Connection is not encrypted.");
+            }
+
+            var ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+            if (ipPattern.test(domain)) {
+                probs.push("Raw IP Address: Uses an IP address instead of a proper domain name.");
+            }
+
+            var cleanDomain = domain;
+            cleanDomain = cleanDomain.replace(/0/g, "o");
+            cleanDomain = cleanDomain.replace(/1/g, "l");
+            cleanDomain = cleanDomain.replace(/3/g, "e");
+            cleanDomain = cleanDomain.replace(/5/g, "s");
+
+            for (var i = 0; i < brands.length; i++) {
+                var b = brands[i];
+                if (cleanDomain.indexOf(b) !== -1) {
+                    var isOfficial = false;
+                    if (domain == b + ".com" || domain == b + ".in") {
+                        isOfficial = true;
+                    }
+                    if (domain.endsWith("." + b + ".com") || domain.endsWith("." + b + ".in")) {
+                        isOfficial = true;
+                    }
+                    if (isOfficial == false) {
+                        probs.push("Fake Domain: Imitates '" + b + "' but is not the official website.");
+                        break;
+                    }
+                }
+            }
+
+            var checkPart = lower;
+            try {
+                var parsed = new URL(lower.startsWith("http") ? lower : "http://" + lower);
+                checkPart = parsed.hostname + parsed.pathname;
+            } catch (e) {
+                checkPart = lower;
+            }
+
+            var found_words = [];
+            for (var j = 0; j < suspiciousWords.length; j++) {
+                if (checkPart.indexOf(suspiciousWords[j]) != -1) {
+                    found_words.push(suspiciousWords[j]);
+                }
+            }
+            if (found_words.length > 0) {
+                probs.push("Suspicious Words Found: " + found_words.join(", "));
+            }
+
+            return { domain: domain, problems: probs };
+        }
+
+        function showResult(domain, problems) {
+            var box = document.getElementById("resultBox");
+            var verdict = document.getElementById("verdictText");
+            var meta = document.getElementById("metaText");
+            var list = document.getElementById("findingsList");
+
+            list.innerHTML = "";
+
+            if (domain == "") {
+                meta.textContent = "Domain: Invalid Domain";
+            } else {
+                meta.textContent = "Domain: " + domain;
+            }
+
+            var messages;
+
+            if (problems.length == 0) {
+                box.className = "result-box safe";
+                verdict.textContent = "SAFE (No Threats Detected)";
+                messages = ["HTTPS Enabled: Connection uses standard encryption."];
+            } else {
+                box.className = "result-box danger";
+                verdict.textContent = "DANGEROUS (Likely Phishing)";
+                messages = problems;
+            }
+
+            for (var i = 0; i < messages.length; i++) {
+                var li = document.createElement("li");
+                li.textContent = messages[i];
+                list.appendChild(li);
+            }
+        }
+
+        var form = document.getElementById("urlForm");
+        form.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            var input = document.getElementById("urlInput");
+            var value = input.value.trim();
+
+            if (value == "") {
+                return;
+            }
+
+            var result = checkUrl(value);
+            showResult(result.domain, result.problems);
+        });
+    </script>
 </body>
 </html>
